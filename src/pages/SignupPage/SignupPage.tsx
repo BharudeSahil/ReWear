@@ -1,178 +1,209 @@
-// src/pages/Dashboard/Dashboard.tsx
-import React, { useState, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Plus, Package, RefreshCw, Award, TrendingUp, Clock, CheckCircle } from 'lucide-react';
+import { User, Mail, Lock, Eye, EyeOff, Check } from 'lucide-react';
 import './SignupPage.css';
 
-interface Item {
-  _id: string;
-  title: string;
-  image?: string;
-  status: string;
-  views: number;
-  interested: number;
-  swappedWith?: string;
-}
+const SignupPage: React.FC = () => {
+  const [formData, setFormData] = useState({
+    name: '',
+    email: '',
+    password: '',
+    confirmPassword: ''
+  });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
+  
+  const { signup } = useAuth();
+  const navigate = useNavigate();
 
-interface Swap {
-  _id: string;
-  type: string;
-  item?: { title: string };
-  points?: number;
-  partner?: { name: string };
-  date: string;
-  status: string;
-}
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setFormData({
+      ...formData,
+      [e.target.name]: e.target.value
+    });
+  };
 
-const Dashboard: React.FC = () => {
-  const { user } = useAuth();
-  const [userItems, setUserItems] = useState<Item[]>([]);
-  const [recentSwaps, setRecentSwaps] = useState<Swap[]>([]);
-  const [stats, setStats] = useState([
-    { label: 'Total Swaps', value: '0', icon: RefreshCw, color: '#48bb78' },
-    { label: 'Items Listed', value: '0', icon: Package, color: '#3182ce' },
-    { label: 'Current Points', value: user?.points.toString() || '0', icon: Award, color: '#ed8936' },
-    { label: 'This Month', value: '0', icon: TrendingUp, color: '#9f7aea' }
-  ]);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchDashboardData = async () => {
-      try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('/api/dashboard', {
-          headers: {
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (!response.ok) {
-          throw new Error('Failed to fetch dashboard data');
-        }
-
-        const data = await response.json();
-
-        setUserItems(data.items);
-        setRecentSwaps(data.swaps);
-        setStats([
-          { label: 'Total Swaps', value: data.stats.totalSwaps.toString(), icon: RefreshCw, color: '#48bb78' },
-          { label: 'Items Listed', value: data.stats.itemsListed.toString(), icon: Package, color: '#3182ce' },
-          { label: 'Current Points', value: data.user.points.toString(), icon: Award, color: '#ed8936' },
-          { label: 'This Month', value: data.stats.thisMonth.toString(), icon: TrendingUp, color: '#9f7aea' }
-        ]);
-      } catch (error) {
-        console.error('Error fetching dashboard data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    if (user) {
-      fetchDashboardData();
+  const validateForm = () => {
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long');
+      return false;
     }
-  }, [user]);
+    if (formData.password !== formData.confirmPassword) {
+      setError('Passwords do not match');
+      return false;
+    }
+    return true;
+  };
 
-  if (loading) {
-    return <div className="loading-spinner">Loading...</div>;
-  }
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setError('');
+
+    if (!validateForm()) return;
+
+    setIsLoading(true);
+
+    try {
+      const success = await signup(formData.name, formData.email, formData.password);
+      if (success) {
+        navigate('/dashboard');
+      } else {
+        setError('Failed to create account. Please try again.');
+      }
+    } catch (err) {
+      setError('Signup failed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const passwordRequirements = [
+    { text: 'At least 6 characters', met: formData.password.length >= 6 },
+    { text: 'Passwords match', met: formData.password === formData.confirmPassword && formData.confirmPassword !== '' }
+  ];
 
   return (
-    <div className="dashboard fade-in">
-      <div className="container">
-        <div className="dashboard-header">
-          <div className="welcome-section">
-            <h1>Welcome back, {user?.name}!</h1>
-            <p>Ready to swap some amazing finds today?</p>
-          </div>
-          <Link to="/add-item" className="btn btn-primary">
-            <Plus size={16} />
-            List New Item
-          </Link>
-        </div>
-
-     
-        <div className="stats-grid">
-          {stats.map((stat, index) => (
-            <div key={index} className="stat-card">
-              <div className="stat-icon" style={{ backgroundColor: `${stat.color}20`, color: stat.color }}>
-                <stat.icon size={24} />
-              </div>
-              <div className="stat-content">
-                <div className="stat-value">{stat.value}</div>
-                <div className="stat-label">{stat.label}</div>
-              </div>
-            </div>
-          ))}
-        </div>
-
-        <div className="dashboard-content">
-   
-          <div className="dashboard-section">
-            <div className="section-header">
-              <h2>My Items</h2>
-              <Link to="/add-item" className="btn btn-secondary">Add Item</Link>
-            </div>
-            <div className="items-grid">
-              {userItems.map(item => (
-                <div key={item._id} className="user-item-card">
-                  <div className="item-image">
-                    <img src={item.image} alt={item.title} />
-                    <div className={`status-badge ${item.status}`}>
-                      {item.status === 'active' ? 'Active' : 'Swapped'}
-                    </div>
-                  </div>
-                  <div className="item-content">
-                    <h3>{item.title}</h3>
-                    {item.status === 'active' ? (
-                      <div className="item-stats">
-                        <span>{item.views} views</span>
-                        <span>{item.interested} interested</span>
-                      </div>
-                    ) : (
-                      <p className="swap-info">Swapped for: {item.swappedWith}</p>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
+    <div className="signup-page fade-in">
+      <div className="signup-container">
+        <div className="signup-form-section">
+          <div className="signup-header">
+            <h1>Join ReWear</h1>
+            <p>Start your sustainable fashion journey today</p>
           </div>
 
-          {/* Recent Activity */}
-          <div className="dashboard-section">
-            <div className="section-header">
-              <h2>Recent Activity</h2>
-              <Link to="#" className="view-all">View All</Link>
+          {error && (
+            <div className="alert alert-error">
+              {error}
             </div>
-            <div className="activity-list">
-              {recentSwaps.map(swap => (
-                <div key={swap._id} className="activity-item">
-                  <div className="activity-icon">
-                    {swap.type === 'swap' ? 
-                      <RefreshCw size={16} /> : 
-                      <Award size={16} />
-                    }
-                  </div>
-                  <div className="activity-content">
-                    <div className="activity-main">
-                      {swap.type === 'swap' ? (
-                        <span>Swapped <strong>{swap.item?.title}</strong> with {swap.partner?.name}</span>
-                      ) : (
-                        <span>Redeemed <strong>{swap.item?.title}</strong> for {swap.points} points</span>
-                      )}
-                    </div>
-                    <div className="activity-meta">
-                      <Clock size={12} />
-                      <span>{swap.date}</span>
-                      <div className={`activity-status ${swap.status}`}>
-                        {swap.status === 'completed' ? <CheckCircle size={12} /> : <Clock size={12} />}
-                        {swap.status}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              ))}
+          )}
+
+          <form onSubmit={handleSubmit} className="signup-form">
+            <div className="form-group">
+              <label htmlFor="name" className="form-label">
+                <User size={16} />
+                Full Name
+              </label>
+              <input
+                type="text"
+                id="name"
+                name="name"
+                className="form-input"
+                value={formData.name}
+                onChange={handleChange}
+                placeholder="Enter your full name"
+                required
+              />
             </div>
+
+            <div className="form-group">
+              <label htmlFor="email" className="form-label">
+                <Mail size={16} />
+                Email Address
+              </label>
+              <input
+                type="email"
+                id="email"
+                name="email"
+                className="form-input"
+                value={formData.email}
+                onChange={handleChange}
+                placeholder="Enter your email"
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="password" className="form-label">
+                <Lock size={16} />
+                Password
+              </label>
+              <div className="password-input">
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  id="password"
+                  name="password"
+                  className="form-input"
+                  value={formData.password}
+                  onChange={handleChange}
+                  placeholder="Create a password"
+                  required
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowPassword(!showPassword)}
+                >
+                  {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="confirmPassword" className="form-label">
+                <Lock size={16} />
+                Confirm Password
+              </label>
+              <div className="password-input">
+                <input
+                  type={showConfirmPassword ? 'text' : 'password'}
+                  id="confirmPassword"
+                  name="confirmPassword"
+                  className="form-input"
+                  value={formData.confirmPassword}
+                  onChange={handleChange}
+                  placeholder="Confirm your password"
+                  required
+                />
+                <button
+                  type="button"
+                  className="password-toggle"
+                  onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                >
+                  {showConfirmPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                </button>
+              </div>
+            </div>
+
+            {formData.password && (
+              <div className="password-requirements">
+                <h4>Password Requirements:</h4>
+                <ul>
+                  {passwordRequirements.map((req, index) => (
+                    <li key={index} className={req.met ? 'met' : 'unmet'}>
+                      <Check size={14} />
+                      {req.text}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            <button type="submit" className="btn btn-primary signup-btn" disabled={isLoading}>
+              {isLoading ? <span className="loading"></span> : 'Create Account'}
+            </button>
+          </form>
+
+          <div className="signup-footer">
+            <p>Already have an account? <Link to="/login">Sign in here</Link></p>
+          </div>
+
+          <div className="welcome-bonus">
+            <h4>🎉 Welcome Bonus</h4>
+            <p>Get 50 points when you sign up to start swapping immediately!</p>
+          </div>
+        </div>
+
+        <div className="signup-image-section">
+          <img 
+            src="https://images.pexels.com/photos/1183266/pexels-photo-1183266.jpeg?auto=compress&cs=tinysrgb&w=600" 
+            alt="Sustainable Fashion Community"
+          />
+          <div className="image-overlay">
+            <h3>Join 5,000+ Members</h3>
+            <p>Building a sustainable fashion future together</p>
           </div>
         </div>
       </div>
@@ -180,4 +211,4 @@ const Dashboard: React.FC = () => {
   );
 };
 
-export default Dashboard;
+export default SignupPage;
