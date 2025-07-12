@@ -100,11 +100,11 @@ const LoginPage: React.FC = () => {
             <Link to="#" className="forgot-password">Forgot your password?</Link>
           </div>
 
-          <div className="demo-credentials">
+          {/* <div className="demo-credentials">
             <h4>Demo Credentials:</h4>
             <p><strong>User:</strong> demo@rewear.com / demo123</p>
             <p><strong>Admin:</strong> admin@rewear.com / admin123</p>
-          </div>
+          </div> */}
         </div>
 
         <div className="login-image-section">

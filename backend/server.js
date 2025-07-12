@@ -11,7 +11,6 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-
 // Middleware
 app.use(cors());
 app.use(express.json());
@@ -32,6 +31,11 @@ const UserSchema = new mongoose.Schema({
   points: { type: Number, default: 50 }, // Starting bonus
   role: { type: String, enum: ['user', 'admin'], default: 'user' },
   createdAt: { type: Date, default: Date.now }
+});
+
+// Add post-save hook for user creation log
+UserSchema.post('save', function(doc) {
+  console.log(`User added: ${doc.email} (ID: ${doc._id})`);
 });
 
 const User = mongoose.model('User', UserSchema);
@@ -83,7 +87,7 @@ const authenticate = (req, res, next) => {
 
 // Routes
 
-// Register User
+// Register User - FIXED
 app.post('/api/auth/register', [
   body('name', 'Name is required').not().isEmpty(),
   body('email', 'Please include a valid email').isEmail(),
@@ -121,7 +125,10 @@ app.post('/api/auth/register', [
     };
 
     jwt.sign(payload, JWT_SECRET, { expiresIn: '7d' }, (err, token) => {
-      if (err) throw err;
+      if (err) {
+        console.error('JWT error:', err.message);
+        return res.status(500).send('Server error');
+      }
       res.json({ 
         token,
         user: {
@@ -134,12 +141,12 @@ app.post('/api/auth/register', [
       });
     });
   } catch (err) {
-    console.error(err.message);
+    console.error('Registration error:', err.message);
     res.status(500).send('Server error');
   }
 });
 
-// Login User
+// Login User - FIXED
 app.post('/api/auth/login', [
   body('email', 'Please include a valid email').isEmail(),
   body('password', 'Password is required').exists()
@@ -162,6 +169,8 @@ app.post('/api/auth/login', [
       return res.status(400).json({ message: 'Invalid credentials' });
     }
 
+    console.log(`User logged in: ${user.email}`);
+    
     const payload = {
       user: {
         id: user.id,
@@ -183,7 +192,7 @@ app.post('/api/auth/login', [
       });
     });
   } catch (err) {
-    console.error(err.message);
+    console.error('Login error:', err.message);
     res.status(500).send('Server error');
   }
 });
